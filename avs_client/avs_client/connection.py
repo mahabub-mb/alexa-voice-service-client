@@ -2,6 +2,7 @@ import json
 import http
 import typing
 import uuid
+from typing import Dict, Any
 
 from requests_toolbelt import MultipartDecoder, MultipartEncoder
 from requests.exceptions import HTTPError
@@ -144,9 +145,14 @@ class ConnectionManager:
         return self.connection.get_response(stream_id)
 
     @staticmethod
-    def parse_response(response) -> typing.Union[bytes, None]:
+    def parse_response(response) -> Dict:
+        response_avs = {
+
+        }
+
         if response.status == http.client.NO_CONTENT:
             return None
+
         if not response.status == http.client.OK:
             raise HTTPError(response=response)
 
@@ -155,8 +161,15 @@ class ConnectionManager:
             response.headers['content-type'][0].decode()
         )
         for part in parsed.parts:
+            if part.headers[b'Content-Type'] == b'application/json; charset=UTF-8':
+                content = json.loads(part.content)
+                if content.get("directive").get("header").get("namespace") == "TemplateRuntime":
+                    response_avs["TemplateRuntime"] = content
+
             if part.headers[b'Content-Type'] == b'application/octet-stream':
-                return part.content
+                    response_avs["Speak"] = part.content
+
+        return response_avs
 
     @staticmethod
     def generate_dialogue_id() -> str:
